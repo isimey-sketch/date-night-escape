@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#10130f" />
+<title>Date Night Escape</title>
+<link rel="icon" href="icon.svg" />
+<link rel="manifest" href="manifest.json" />
+<style>
+:root{--bg:#10130f;--card:#1a1e18;--paper:#f4f1ea;--muted:#a7a294;--ink:#f7f4ee;--line:#2c3229;--amber:#e7b15a;--mint:#7dcec4}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:"Avenir Next","Segoe UI",sans-serif}
+button,input,select{font:inherit}a{color:var(--mint)}
+.app{max-width:880px;margin:0 auto;padding:20px 16px 88px}
+.mark{font-family:Georgia,serif;font-size:28px;letter-spacing:-.04em;margin:0}.mark span{color:var(--amber)}
+.sub,.meta{color:var(--muted)} .warn{color:#efc27a;font-size:14px}
+.audiences{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0}
+.aud,.chip,.primary,.ghost,.suggest{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:14px}
+.aud{text-align:left;padding:12px}.aud strong{display:block}.aud small{color:var(--muted)}.aud.on{border-color:var(--amber);background:#262218}
+.panel{background:#151814;border:1px solid var(--line);border-radius:18px;padding:14px}
+label{display:block;font-size:13px;color:var(--muted);margin:10px 0 6px}
+input,select{width:100%;background:#0e110d;color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:12px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip,.ghost{padding:8px 10px}.chip.on{background:#24332a;border-color:var(--mint)}
+.primary{background:var(--paper);color:#1a1712;font-weight:700;padding:14px;width:100%;margin-top:12px}
+.plan{background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;margin-top:12px}
+.plan img{width:100%;height:150px;object-fit:cover;background:#222}.body{padding:12px 14px 14px}
+.kicker{color:var(--amber);letter-spacing:.12em;text-transform:uppercase;font-size:12px}
+.stop{border-top:1px solid var(--line);margin-top:8px;padding-top:8px}
+.venue{display:grid;grid-template-columns:88px 1fr;gap:8px;background:var(--card);border-radius:14px;overflow:hidden;margin:8px 0}
+.venue img{width:88px;height:88px;object-fit:cover}
+.map{width:100%;height:220px;border:0;border-radius:14px;margin-top:8px}
+.progress{height:6px;background:#2a2e28;border-radius:99px;overflow:hidden;margin:12px 0}.progress i{display:block;height:100%;width:40%;background:var(--mint);animation:load 1s infinite}
+@keyframes load{50%{margin-left:60%}}
+@media(max-width:640px){.row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main class="app">
+  <p class="mark">Date Night <span>Escape</span></p>
+  <p class="sub">A real outing in about a minute. Solo, couples, friends and families each get their own plan. No login.</p>
+  <section id="aud" class="audiences"></section>
+  <section class="panel" id="form"></section>
+  <div id="status"></div>
+  <div class="chips" style="margin-top:12px">
+    <button class="ghost" id="tabPlans">Plans</button>
+    <button class="ghost" id="tabExplore">Explore venues</button>
+    <button class="ghost" id="tabSaved">Saved</button>
+  </div>
+  <section id="out"></section>
+</main>
+<script>
+const UA = "DateNightEscape/1.0";
+const CATS = [
+  {id:"restaurant",label:"Restaurants",group:"food",indoor:"indoor",est:[24,46],osm:[["amenity","restaurant"]],aud:["solo","couple","friends","family"]},
+  {id:"cafe",label:"Cafés",group:"food",indoor:"indoor",est:[8,18],osm:[["amenity","cafe"]],aud:["solo","couple","friends","family"]},
+  {id:"dessert",label:"Dessert",group:"food",indoor:"mixed",est:[5,12],osm:[["amenity","ice_cream"],["shop","pastry"]],aud:["solo","couple","friends","family"]},
+  {id:"fast_food",label:"Quick bites",group:"food",indoor:"indoor",est:[8,16],osm:[["amenity","fast_food"]],aud:["solo","friends","family"]},
+  {id:"bar",label:"Bars",group:"food",indoor:"indoor",est:[12,28],adult:true,osm:[["amenity","bar"],["amenity","pub"]],aud:["couple","friends"]},
+  {id:"bowling",label:"Bowling",group:"activity",indoor:"indoor",est:[12,26],osm:[["leisure","bowling_alley"]],aud:["couple","friends","family","solo"]},
+  {id:"minigolf",label:"Mini golf",group:"activity",indoor:"mixed",est:[8,16],osm:[["leisure","miniature_golf"]],aud:["couple","friends","family"]},
+  {id:"arcade",label:"Arcades",group:"activity",indoor:"indoor",est:[10,22],osm:[["leisure","amusement_arcade"]],aud:["friends","family","couple"]},
+  {id:"escape",label:"Escape rooms",group:"activity",indoor:"indoor",est:[25,38],team:true,osm:[["leisure","escape_game"]],aud:["friends","couple","family"]},
+  {id:"museum",label:"Museums",group:"culture",indoor:"indoor",est:[8,18],osm:[["tourism","museum"]],aud:["solo","couple","friends","family"]},
+  {id:"exhibition",label:"Exhibitions",group:"culture",indoor:"indoor",est:[8,16],osm:[["tourism","gallery"]],aud:["solo","couple","friends"]},
+  {id:"workshop",label:"Creative spaces",group:"culture",indoor:"indoor",est:[12,30],osm:[["amenity","arts_centre"]],aud:["solo","couple","friends","family"]},
+  {id:"climbing",label:"Climbing",group:"activity",indoor:"indoor",est:[14,28],osm:[["sport","climbing"]],aud:["solo","couple","friends","family"]},
+  {id:"park",label:"Parks",group:"outdoor",indoor:"outdoor",est:[0,0],osm:[["leisure","park"]],aud:["solo","couple","friends","family"]},
+  {id:"playground",label:"Playgrounds",group:"outdoor",indoor:"outdoor",est:[0,0],osm:[["leisure","playground"]],aud:["family"]},
+  {id:"viewpoint",label:"Viewpoints",group:"outdoor",indoor:"outdoor",est:[0,8],osm:[["tourism","viewpoint"]],aud:["solo","couple","friends","family"]},
+  {id:"zoo",label:"Zoos",group:"culture",indoor:"mixed",est:[12,24],osm:[["tourism","zoo"]],aud:["family","couple","friends"]},
+  {id:"aquarium",label:"Aquariums",group:"culture",indoor:"indoor",est:[14,26],osm:[["tourism","aquarium"]],aud:["family","couple","friends"]},
+  {id:"indoor_play",label:"Indoor play",group:"activity",indoor:"indoor",est:[8,18],osm:[["leisure","indoor_play"]],aud:["family"]},
+  {id:"cinema",label:"Cinemas",group:"culture",indoor:"indoor",est:[11,18],show:true,osm:[["amenity","cinema"]],aud:["solo","couple","friends","family"]},
+  {id:"theatre",label:"Theatres",group:"culture",indoor:"indoor",est:[18,48],show:true,osm:[["amenity","theatre"]],aud:["solo","couple","friends"]}
+];
+const AUDS = [
+  {id:"solo",label:"Solo date",hint:"One person, no assumed partner",cta:"Plan My Date"},
+  {id:"couple",label:"Date night",hint:"Two, paced for a real evening",cta:"Plan Our Date"},
+  {id:"friends",label:"Friends",hint:"Social, sized to the group",cta:"Plan Our Outing"},
+  {id:"family",label:"Family",hint:"Age-aware, not a relabelled date",cta:"Plan Family Time"}
+];
+const VIBES = ["easy","playful","romantic","food-first","outdoors","culture","active","low-key"];
+const state = {audience:"couple",place:null,vibes:["easy","food-first"],setting:"mixed",exclude:[],tab:"plans",result:null,saved:JSON.parse(localStorage.getItem("dne-saved")||"[]")};
+function esc(s){return String(s??"").replace(/[&<>]/g,c=>({"&":"&","<":"<",">":">"}[c]));}
+function money(c,n){return (c==="GBP"?"£":c==="CHF"?"CHF ":"€")+Math.round(n);}
+function cur(country){return country==="gb"?"GBP":country==="ch"?"CHF":"EUR";}
+function img(cat,name){const svg=`<svg xmlns='http://www.w3.org/2000/svg' width='800' height='480'><rect width='800' height='480' fill='#1c241c'/><text x='40' y='230' fill='#f4f1ea' font-size='42' font-family='Georgia'>${cat.label}</text><text x='40' y='280' fill='#d9d4c8' font-size='20' font-family='sans-serif'>Category image, not a photo of this venue</text></svg>`;return {url:`data:image/svg+xml;utf8,${encodeURIComponent(svg)}`,label:`Category image for ${cat.label}, not a photo of ${name}`};}
+function hav(a,b){const R=6371000,dLat=(b.lat-a.lat)*Math.PI/180,dLon=(b.lon-a.lon)*Math.PI/180,l1=a.lat*Math.PI/180,l2=b.lat*Math.PI/180,h=Math.sin(dLat/2)**2+Math.cos(l1)*Math.cos(l2)*Math.sin(dLon/2)**2;return 2*R*Math.asin(Math.sqrt(h));}
+async function getJSON(url,opt={}){const r=await fetch(url,{...opt,headers:{"Accept":"application/json",...(opt.headers||{})}});if(!r.ok) throw new Error("HTTP "+r.status);return r.json();}
+async function geocode(q){const rows=await getJSON(`https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&q=${encodeURIComponent(q)}`);return rows.map(r=>({label:r.display_name,lat:+r.lat,lon:+r.lon,city:r.address?.city||r.address?.town||r.address?.village||r.name,country:r.address?.country_code||"",sourceId:`${r.osm_type}:${r.osm_id}`}));}
+async function overpass(query){const bases=["https://overpass-api.de/api/interpreter","https://overpass.kumi.systems/api/interpreter"];let last;for(const b of bases){try{return await getJSON(b,{method:"POST",headers:{"Content-Type":"text/plain"},body:query});}catch(e){last=e;}}throw last;}
+function parseHours(raw){if(!raw) return {known:false};if(/24\s*\/\s*7/i.test(raw)) return {known:true,always:true,raw};const DAY={su:0,mo:1,tu:2,we:3,th:4,fr:5,sa:6};const ranges=[];for(const part of raw.split(";")){const m=part.trim().match(/^([A-Za-z]{2}(?:\s*-\s*[A-Za-z]{2})?(?:,\s*[A-Za-z]{2}(?:\s*-\s*[A-Za-z]{2})?)*)\s+(.+)$/);if(!m) continue;const days=new Set();for(const chunk of m[1].split(",")){const bit=chunk.trim().toLowerCase();const span=bit.match(/^([a-z]{2})\s*-\s*([a-z]{2})$/);if(span){let d=DAY[span[1]];for(let i=0;i<7;i++){days.add(d);if(d===DAY[span[2]])break;d=(d+1)%7;}}else if(DAY[bit.slice(0,2)]!=null) days.add(DAY[bit.slice(0,2)]);}for(const slot of m[2].split(",")){const tm=slot.match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);if(!tm) continue;const open=+tm[1]*60+ +tm[2];let close=+tm[3]*60+ +tm[4];if(close<=open) close+=1440;for(const d of days) ranges.push({day:d,open,close});}}return {known:ranges.length>0,raw,ranges};}
+function hourStatus(h,date,stay){if(!h?.known) return {status:"unknown",note:"Opening hours are not in the source. Unknown is not open."};if(h.always) return {status:"open",note:"Listed 24/7."};const start=date.getHours()*60+date.getMinutes();const hit=(h.ranges||[]).find(r=>r.day===date.getDay()&&start>=r.open&&start+stay<=r.close);return hit?{status:"open",note:h.raw}:{status:"closed",note:`Hours do not cover this stay (${h.raw}).`};}
+let cache=null,cacheKey="";
+async function discover({lat,lon,radius,categories,query="",limit=80}){
+  const key=`${lat.toFixed(2)}:${lon.toFixed(2)}:${radius}:${categories.join(",")}`;
+  if(cacheKey!==key){const blocks=categories.flatMap(id=>CATS.find(c=>c.id===id).osm.flatMap(([k,v])=>[`node["${k}"="${v}"]["name"](around:${radius},${lat},${lon});`,`way["${k}"="${v}"]["name"](around:${radius},${lat},${lon});`]));const data=await overpass(`[out:json][timeout:25];(${blocks.join("")});out center 60;`);cache=data.elements||[];cacheKey=key;}
+  const seen=new Set();const places=[];
+  for(const el of cache){const tags=el.tags||{};const cat=CATS.filter(c=>categories.includes(c.id)).find(c=>c.osm.some(([k,v])=>tags[k]===v));const lat2=el.lat||el.center?.lat, lon2=el.lon||el.center?.lon;if(!cat||!tags.name||!lat2) continue;const id=`osm:${el.type}:${el.id}`;if(seen.has(id)) continue;if(query && !`${tags.name} ${cat.label} ${tags["addr:street"]||""}`.toLowerCase().includes(query.toLowerCase())) continue;seen.add(id);
+    const commons=tags.wikimedia_commons;let image=img(cat,tags.name);if(commons&&/^File:/i.test(commons)) image={url:`https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(commons.replace(/^File:/i,""))}?width=800`,label:"Wikimedia file linked from this venue's OSM record"};
+    places.push({id,name:tags.name,category:cat.id,categoryLabel:cat.label,group:cat.group,indoor:cat.indoor,adult:!!cat.adult,team:!!cat.team,show:!!cat.show,est:cat.est,lat:lat2,lon:lon2,address:[tags["addr:housenumber"],tags["addr:street"],tags["addr:postcode"],tags["addr:city"]].filter(Boolean).join(" "),website:tags.website||tags["contact:website"]||"",openingHours:tags.opening_hours||"",hours:parseHours(tags.opening_hours),image,sourceUrl:`https://www.openstreetmap.org/${el.type}/${el.id}`,distanceM:Math.round(hav({lat,lon},{lat:lat2,lon:lon2}))});
+  }
+  return places.sort((a,b)=>a.distanceM-b.distanceM).slice(0,limit);
+}
+function party(input){if(input.audience==="solo") return 1;if(input.audience==="couple") return 2;if(input.audience==="friends") return Math.max(2,+input.partySize||4);return Math.max(1,+input.adults||2)+Math.max(0,+input.children||0);}
+function allowed(p,input){const cat=CATS.find(c=>c.id===p.category);if(!cat.aud.includes(input.audience)) return false;if(input.audience==="family"&&p.adult) return false;if(input.audience==="solo"&&p.team) return false;const young=Math.min(...(input.childAges.length?input.childAges:[8]));if(input.audience==="family"&&young<8&&p.category==="escape") return false;if(input.setting==="indoor"&&p.indoor==="outdoor") return false;if(input.setting==="outdoor"&&p.indoor==="indoor") return false;return true;}
+function score(p,input,weather){let s=40;if((input.vibes||[]).includes("food-first")&&p.group==="food") s+=16;if((input.vibes||[]).includes("culture")&&p.group==="culture") s+=16;if((input.vibes||[]).includes("active")&&["bowling","climbing","minigolf","arcade"].includes(p.category)) s+=14;if(input.audience==="family"&&["playground","zoo","aquarium","indoor_play","park","dessert"].includes(p.category)) s+=14;if(input.audience==="friends"&&["bowling","arcade","escape","minigolf"].includes(p.category)) s+=14;if(input.audience==="solo"&&["cafe","museum","cinema","park"].includes(p.category)) s+=12;s+=Math.max(0,22-(p.distanceM/1000)*4);if(p.hours.known) s+=8; else s-=4;if(weather?.rainy&&p.indoor==="outdoor") s-=18;if(weather?.rainy&&p.indoor==="indoor") s+=8;return s;}
+async function weatherAt(lat,lon){const d=await getJSON(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,precipitation,weather_code&timezone=auto`);const code=d.current?.weather_code;const rainy=[51,53,55,61,63,65,80,81,82,95,96,99].includes(code)||(d.current?.precipitation||0)>0.2;return {timezone:d.timezone,tempC:d.current?.temperature_2m,rainy,summary:code===0?"Clear":code<=3?"Mostly fair":code<=48?"Cloudy":"Wet"};}
+async function route(points){try{const path=points.map(p=>`${p.lon},${p.lat}`).join(";");const d=await getJSON(`https://router.project-osrm.org/route/v1/foot/${path}?overview=false`);return {source:"osrm-foot",legs:(d.routes?.[0]?.legs||[]).map(l=>({seconds:l.duration}))};}catch{return {source:"haversine-fallback",legs:points.slice(1).map((p,i)=>({seconds:(hav(points[i],p)/4500)*3600}))};}}
+function cost(p,n){return {low:p.est[0]*n,high:p.est[1]*n,note:p.est[1]===0?"No fee in the category estimate.":"Category estimate, not a confirmed price. No child discount applied."};}
+async function assemble(kind,pool,input,weather,used){const n=party(input);const rainy=weather?.rainy||input.setting==="indoor";const food=p=>p.group==="food"&&!(input.audience==="family"&&p.adult);const pick=pred=>pool.find(p=>!used.has(p.id)&&pred(p));let stops=[];
+  if(kind==="easy"){const a=pick(p=>food(p)&&p.category!=="bar")||pick(p=>p.category==="park"||p.category==="playground");if(a){used.add(a.id);stops.push(a);}const b=pick(p=>!food(p)&&(rainy?p.indoor!=="outdoor":true)&&p.distanceM<2500);if(b){used.add(b.id);stops.push(b);}}
+  else if(kind==="fun"){const a=pick(p=>p.group==="activity"&&(rainy?p.indoor!=="outdoor":true))||pick(p=>p.group==="culture");if(a){used.add(a.id);stops.push(a);}const b=pick(food);if(b){used.add(b.id);stops.push(b);}}
+  else {const a=pick(p=>["zoo","aquarium","theatre","viewpoint","museum","exhibition"].includes(p.category)&&(rainy?p.indoor!=="outdoor":true))||pick(p=>p.group!=="food");if(a){used.add(a.id);stops.push(a);}const b=pick(p=>p.category==="restaurant"||p.category==="cafe");if(b){used.add(b.id);stops.push(b);}}
+  if(input.anchor) stops=[input.anchor,...stops.filter(s=>s.id!==input.anchor.id)].slice(0,3);
+  if(!stops.length) return null;
+  const routed=await route([{lat:input.lat,lon:input.lon},...stops.map(s=>({lat:s.lat,lon:s.lon}))]);
+  let cursor=new Date(`${input.date}T${input.time}:00`);let travel=0;const timeline=[];
+  stops.forEach((stop,i)=>{const mins=Math.max(5,Math.round((routed.legs[i]?.seconds||600)/60));travel+=mins;cursor=new Date(cursor.getTime()+mins*60000);const stay=stop.group==="food"?60:75;const hs=hourStatus(stop.hours,cursor,stay);timeline.push({...stop,arrive:cursor.toISOString(),stayMin:stay,travelMin:mins,travelSource:routed.source,hours:hs,cost:cost(stop,n),restrictions:[stop.show?"Building only. Showtimes are not confirmed.":null,stop.team?"Often a team booking. Confirm a slot.":null,input.audience==="family"?"Check age, height and supervision. None confirmed here.":null,!stop.address?"Street address incomplete. Use the map pin.":null].filter(Boolean)});cursor=new Date(cursor.getTime()+stay*60000);});
+  const total=timeline.reduce((a,s)=>({low:a.low+s.cost.low,high:a.high+s.cost.high}),{low:0,high:0});
+  const plan={id:kind+"-"+stops.map(s=>s.id).join("-"),kind,title:(kind==="easy"?"Easy: ":kind==="fun"?"Fun: ":"Wow: ")+stops.map(s=>s.name).join(" & "),vibe:kind==="easy"?"Low logistics, nearby":kind==="fun"?"One shared activity, then food":"A more deliberate outing",stops:timeline,totalMin:travel+timeline.reduce((a,s)=>a+s.stayMin,0),travelMin:travel,cost:{...total,perLow:Math.round(total.low/n),perHigh:Math.round(total.high/n),party:n,currency:cur(input.country)},indoorSplit:`${timeline.filter(s=>s.indoor!=="outdoor").length} indoor-leaning / ${timeline.filter(s=>s.indoor==="outdoor").length} outdoor`,warnings:["Costs are estimates. Child discounts were not invented.",timeline.some(s=>s.hours.status==="unknown")?"At least one stop has unknown hours.":null,weather?.rainy?`Weather: ${weather.summary}. Outdoor stops are backups.`:null].filter(Boolean)};
+  if(plan.stops.some(s=>s.hours.status==="closed")||plan.totalMin>input.durationMin+40) return null;
+  return plan;
+}
+async function build(input){const weather=await weatherAt(input.lat,input.lon).catch(()=>null);const radius=/berlin|london|paris/i.test(input.city||"")?7000:4500;const categories=CATS.filter(c=>c.aud.includes(input.audience)).map(c=>c.id);let places=await discover({lat:input.lat,lon:input.lon,radius,categories,limit:140});places=places.filter(p=>allowed(p,input)&&!input.exclude.includes(p.id));places.forEach(p=>p.rank=score(p,input,weather));places.sort((a,b)=>b.rank-a.rank||a.distanceM-b.distanceM);const used=new Set();const plans=[await assemble("easy",places,input,weather,used),await assemble("fun",places,input,weather,used),await assemble("wow",places,input,weather,used)].filter(Boolean);return {plans,inventory:places.length,weather,note:places.length<8?"Supply is thin for these filters. Widen the area or relax indoor/outdoor.":"Ranked on fit, distance, hours confidence, weather and budget. OSM has no popularity field."};}
+function renderAud(){document.getElementById("aud").innerHTML=AUDS.map(a=>`<button class="aud ${state.audience===a.id?"on":""}" data-a="${a.id}"><strong>${a.label}</strong><small>${a.hint}</small></button>`).join("");}
+function renderForm(){const a=state.audience;document.getElementById("form").innerHTML=`
+  <label>City or starting point</label><input id="q" placeholder="Gelnhausen, Berlin, a neighbourhood" value="Frankfurt" />
+  <div class="chips" style="margin-top:8px"><button class="ghost" id="here">Use my location</button>${["Gelnhausen","Frankfurt","Berlin","Paris","London"].map(c=>`<button class="chip" data-city="${c}">${c}</button>`).join("")}</div>
+  <div id="hits"></div><p class="meta" id="picked"></p>
+  <div class="row"><div><label>Date</label><input id="date" type="date" value="${new Date().toISOString().slice(0,10)}" /></div><div><label>Start</label><input id="time" type="time" value="18:30" /></div></div>
+  <div class="row"><div><label>Duration (minutes)</label><input id="dur" type="number" value="180" /></div><div><label>Budget for the whole party</label><input id="budget" type="number" value="90" /></div></div>
+  ${a==="friends"?`<label>Group size</label><input id="party" type="number" value="4" />`:""}
+  ${a==="family"?`<div class="row"><div><label>Adults</label><input id="adults" type="number" value="2" /></div><div><label>Children</label><input id="kids" type="number" value="2" /></div></div><label>Children's ages</label><input id="ages" value="6, 11" />`:""}
+  ${a==="couple"?`<label>Occasion, optional</label><input id="occasion" placeholder="anniversary, first date" />`:""}
+  <label>Food notes, optional</label><input id="diet" placeholder="vegetarian — menus are not verified" />
+  <label>Vibes</label><div class="chips">${VIBES.map(v=>`<button class="chip ${state.vibes.includes(v)?"on":""}" data-vibe="${v}">${v}</button>`).join("")}</div>
+  <label>Setting</label><select id="setting"><option value="mixed">Mixed</option><option value="indoor">Indoor</option><option value="outdoor">Outdoor</option></select>
+  <div class="chips" style="margin-top:10px"><button class="ghost" id="tonight">Tonight</button><button class="ghost" id="surprise">Surprise ${a==="solo"?"me":"us"}</button></div>
+  <button class="primary" id="go">${AUDS.find(x=>x.id===a).cta}</button>`;
+  document.getElementById("setting").value=state.setting;
+}
+async function lookup(q){if(q.trim().length<3) return;const hits=await geocode(q);document.getElementById("hits").innerHTML=hits.slice(0,4).map((h,i)=>`<button class="suggest" data-hit="${i}">${esc(h.label)}</button>`).join("");document.getElementById("hits")._hits=hits;}
+function inputFromForm(){return {audience:state.audience,lat:state.place.lat,lon:state.place.lon,city:state.place.city,country:state.place.country,date:date.value,time:time.value,durationMin:+dur.value,budget:+budget.value,vibes:state.vibes,setting:setting.value,partySize:+(document.getElementById("party")?.value||4),adults:+(document.getElementById("adults")?.value||2),children:+(document.getElementById("kids")?.value||0),childAges:(document.getElementById("ages")?.value||"").split(/[^0-9]+/).filter(Boolean).map(Number),exclude:state.exclude};}
+function planCard(p){return `<article class="plan"><img src="${p.stops[0].image.url}" alt="${esc(p.stops[0].image.label)}" /><div class="body"><div class="kicker">${p.kind}</div><h2>${esc(p.title)}</h2><p>${esc(p.vibe)}</p><p class="meta">${p.totalMin} min · travel ${p.travelMin} min · ${p.indoorSplit} · ${money(p.cost.currency,p.cost.low)}–${money(p.cost.currency,p.cost.high)} total · ${money(p.cost.currency,p.cost.perLow)}–${money(p.cost.currency,p.cost.perHigh)} / person · party ${p.cost.party}</p>${p.stops.map(s=>`<div class="stop"><strong>${esc(s.name)}</strong> · ${s.categoryLabel}<br><span class="meta">${new Date(s.arrive).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})} · ${s.stayMin} min there · ${s.travelMin} min travel (${s.travelSource}) · hours: ${s.hours.status}</span><br>${esc(s.address)||"Address incomplete"} · <a href="${s.sourceUrl}" target="_blank">source</a> ${s.website?`<a href="${esc(s.website)}" target="_blank">official</a>`:""}<p class="meta">${esc(s.image.label)}. ${esc(s.cost.note)} No reservation was checked.</p>${s.restrictions.map(r=>`<p class="warn">${esc(r)}</p>`).join("")}</div>`).join("")}${p.warnings.map(w=>`<p class="warn">${esc(w)}</p>`).join("")}<div class="chips"><button class="ghost" data-save="${esc(p.id)}">Save</button><button class="ghost" data-share="${esc(p.id)}">Share text</button><button class="ghost" data-again="${esc(p.id)}">Another set</button><button class="ghost" data-rescue="${esc(p.id)}">Rescue this plan</button></div><iframe class="map" title="Map" src="https://www.openstreetmap.org/export/embed.html?bbox=${p.stops[0].lon-0.04}%2C${p.stops[0].lat-0.03}%2C${p.stops[0].lon+0.04}%2C${p.stops[0].lat+0.03}&layer=mapnik&marker=${p.stops[0].lat}%2C${p.stops[0].lon}"></iframe></div></article>`;}
+function showPlans(){const r=state.result;document.getElementById("out").innerHTML = !r?"":`<p class="meta">${esc(r.note)} Inventory considered: ${r.inventory}. Weather: ${r.weather?.summary||"unavailable"} ${r.weather?.tempC??""}°C.</p>${r.plans.map(planCard).join("")||"<p class='warn'>No plan survived hours, duration and audience checks.</p>"}`;}
+document.body.addEventListener("click", async (e)=>{
+  const t=e.target.closest("button"); if(!t) return;
+  if(t.dataset.a){state.audience=t.dataset.a;renderAud();renderForm();return;}
+  if(t.dataset.city){q.value=t.dataset.city;lookup(t.dataset.city);return;}
+  if(t.dataset.vibe){const v=t.dataset.vibe;state.vibes=state.vibes.includes(v)?state.vibes.filter(x=>x!==v):[...state.vibes,v];renderForm();return;}
+  if(t.dataset.hit!=null){state.place=document.getElementById("hits")._hits[+t.dataset.hit];picked.textContent="Starting at "+(state.place.city||state.place.label)+". Nearby stops outrank a famous venue across the city.";hits.innerHTML="";return;}
+  if(t.id==="here"&&navigator.geolocation){navigator.geolocation.getCurrentPosition(p=>{state.place={label:"Current location",lat:p.coords.latitude,lon:p.coords.longitude,city:"",country:""};picked.textContent="Using your current location.";});return;}
+  if(t.id==="tonight"){const n=new Date();date.value=n.toISOString().slice(0,10);const m=n.getHours()*60+n.getMinutes()+30;time.value=`${String(Math.floor(m/60)%24).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;dur.value=150;return;}
+  if(t.id==="surprise"){state.vibes=[...VIBES].sort(()=>Math.random()-.5).slice(0,3);state.setting=["mixed","indoor","outdoor"][Math.floor(Math.random()*3)];renderForm();return;}
+  if(t.id==="go"){if(!state.place){status.innerHTML="<p class='warn'>Choose a city or starting point.</p>";return;}status.innerHTML="<div class='progress'><i></i></div><p>Checking places, hours and weather…</p>";try{state.result=await build(inputFromForm());status.innerHTML="";showPlans();}catch(err){status.innerHTML=`<p class='warn'>Provider failed: ${esc(err.message)}. Try again in a moment.</p>`;}return;}
+  if(t.id==="tabPlans") showPlans();
+  if(t.id==="tabSaved") document.getElementById("out").innerHTML=state.saved.map(p=>`<article class="plan"><div class="body"><h3>${esc(p.title)}</h3><p class="meta">${p.stops.map(s=>esc(s.name)).join(" → ")}</p></div></article>`).join("")||"<p>No saved plans on this device.</p>";
+  if(t.id==="tabExplore"){if(!state.place){status.innerHTML="<p class='warn'>Choose a starting point first.</p>";return;}status.innerHTML="<div class='progress'><i></i></div>";const cats=CATS.filter(c=>c.aud.includes(state.audience));const places=await discover({lat:state.place.lat,lon:state.place.lon,radius:8000,categories:cats.map(c=>c.id),limit:60});status.innerHTML="";document.getElementById("out").innerHTML=`<p class="meta">${places.length} sourced venues. Search and categories are separated so restaurants cannot hide the rest.</p><input id="dq" placeholder="Search name or activity" /><div class="chips">${cats.map(c=>`<button class="chip" data-cat="${c.id}">${c.label}</button>`).join("")}</div><div id="venues">${places.map(v=>`<article class="venue"><img src="${v.image.url}" alt="${esc(v.image.label)}"><div><strong>${esc(v.name)}</strong><p class="meta">${v.categoryLabel} · ${(v.distanceM/1000).toFixed(1)} km · ${esc(v.openingHours)||"hours unknown"}</p><button class="ghost" data-anchor="${v.id}">Build a plan around this</button> <a href="${v.sourceUrl}">OSM</a></div></article>`).join("")}</div>`;document.getElementById("out")._places=places;return;}
+  if(t.dataset.cat){const places=await discover({lat:state.place.lat,lon:state.place.lon,radius:8000,categories:[t.dataset.cat],limit:40});document.getElementById("venues").innerHTML=places.map(v=>`<article class="venue"><img src="${v.image.url}" alt=""><div><strong>${esc(v.name)}</strong><p class="meta">${v.categoryLabel} · ${(v.distanceM/1000).toFixed(1)} km</p><button class="ghost" data-anchor="${v.id}">Build a plan around this</button></div></article>`).join("")||"<p class='warn'>Nothing in this category near the start. That category is hidden rather than invented.</p>";document.getElementById("out")._places=places;return;}
+  if(t.dataset.anchor){const p=(document.getElementById("out")._places||[]).find(x=>x.id===t.dataset.anchor);status.innerHTML="<div class='progress'><i></i></div>";const input=inputFromForm();input.anchor=p;state.result=await build(input);status.innerHTML="";showPlans();return;}
+  if(t.dataset.save){const p=state.result.plans.find(x=>x.id===t.dataset.save);state.saved=[p,...state.saved].slice(0,20);localStorage.setItem("dne-saved",JSON.stringify(state.saved));alert("Saved on this device.");}
+  if(t.dataset.share){const p=state.result.plans.find(x=>x.id===t.dataset.share);navigator.clipboard?.writeText(`${p.title}\n${p.stops.map(s=>s.name+" · "+(s.address||"")).join("\n")}\nEstimates only. Confirm hours and booking.`);alert("Itinerary text copied.");}
+  if(t.dataset.again){const p=state.result.plans.find(x=>x.id===t.dataset.again);state.exclude.push(...p.stops.map(s=>s.id));status.innerHTML="<div class='progress'><i></i></div>";state.result=await build(inputFromForm());status.innerHTML="";showPlans();}
+  if(t.dataset.rescue){dur.value=Math.max(60,+dur.value-40);status.innerHTML="<div class='progress'><i></i></div>";state.result=await build(inputFromForm());status.innerHTML="";showPlans();}
+});
+renderAud();renderForm();
+document.body.addEventListener("input",e=>{if(e.target.id==="q") lookup(e.target.value);});
+</script>
+</body>
+</html>
